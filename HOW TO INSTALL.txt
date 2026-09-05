@@ -1,11 +1,10 @@
-Call Track — Installation Guide
-================================
+Call Track (Training) — Installation Guide
+==========================================
 
-STEP 1 — Install Docker Desktop (one time only)
-  Go to: https://www.docker.com/products/docker-desktop
-  Download and install it (click Next, Next, Finish)
-  Open Docker Desktop and wait for it to be ready
-  (you will see a whale icon in your taskbar)
+STEP 1 — Docker Desktop
+  If you already run Call Track (Production), Docker Desktop is already installed.
+  Just make sure Docker Desktop is running (whale icon in your taskbar).
+  If not installed, download from: https://www.docker.com/products/docker-desktop
 
 STEP 2 — Run the setup (one time only)
   Right-click the file called "setup.ps1" in this folder
@@ -14,21 +13,24 @@ STEP 2 — Run the setup (one time only)
   Wait for it to finish — it takes about 30 seconds
 
 STEP 3 — You are done!
-  Two shortcuts have been created on your Desktop:
-  - "Start Call Track"  — double-click to open the app
-  - "Stop Call Track"   — double-click to shut it down
+  Two dedicated training shortcuts have been created on your Desktop:
+  - "Start Call Track (Training)" — double-click to open the training app (Port 4000)
+  - "Stop Call Track (Training)"  — double-click to shut down training
+
+  Note: Your existing "Start Call Track" and "Stop Call Track" shortcuts are NOT touched or replaced.
+  Both instances can run at the same time!
 
   The FIRST time you start the app it will take 3-5 minutes
-  to set itself up. After that it starts in about 10 seconds.
+  to build itself. After that it starts in about 10 seconds.
 
-Your login details:
-  Initial secure passwords are dynamically generated during database setup.
-  Open the "SEED_CREDENTIALS.txt" file in the app directory to view your credentials:
-    - Admin:      admin@calltrack.local       -> (see SEED_CREDENTIALS.txt)
-    - Freelancer: freelancer@calltrack.local  -> (see SEED_CREDENTIALS.txt)
+Your training login details:
+  Initial secure passwords are automatically generated during setup.
+  Open the "SEED_CREDENTIALS.txt" file in this folder to view your credentials:
+    - Admin:      admin-trn@calltrack.local       -> (see SEED_CREDENTIALS.txt)
+    - Freelancer: freelancer-trn@calltrack.local  -> (see SEED_CREDENTIALS.txt)
 
-  Password Security Policy:
-  When resetting or creating new accounts, passwords must be at least 8 characters
-  long and include at least 1 uppercase letter, 1 digit, and 1 special character.
+  Notice the amber banner across the top:
+  "⚠️ TRAINING ENVIRONMENT — Port 4000"
+  This confirms you are safely working in the training sandbox.
 
 Need help? Contact your developer.
