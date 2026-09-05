@@ -56,9 +56,9 @@ async function main() {
 
   const banner = [
     '============================================',
-    ' GENERATED SEED CREDENTIALS (save these!)',
-    ` Admin:      admin@calltrack.local  →  ${adminPassword}`,
-    ` Freelancer: freelancer@calltrack.local  →  ${freelancerPassword}`,
+    ' GENERATED SEED CREDENTIALS (TRAINING)',
+    ` Admin:      admin-trn@calltrack.local  →  ${adminPassword}`,
+    ` Freelancer: freelancer-trn@calltrack.local  →  ${freelancerPassword}`,
     '============================================',
   ].join('\n')
 
@@ -72,32 +72,49 @@ async function main() {
   const adminHash = await bcrypt.hash(adminPassword, 10)
   const freelancerHash = await bcrypt.hash(freelancerPassword, 10)
 
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@calltrack.local' },
-    update: { passwordHash: adminHash },
-    create: {
-      name: 'Admin User',
-      email: 'admin@calltrack.local',
-      passwordHash: adminHash,
-      role: UserRole.ADMIN,
-      freelancerStatus: null,
-    },
-  })
+  // Migrate legacy accounts if present
+  const legacyAdmin = await prisma.user.findUnique({ where: { email: 'admin@calltrack.local' } })
+  if (legacyAdmin) {
+    await prisma.user.update({
+      where: { id: legacyAdmin.id },
+      data: { email: 'admin-trn@calltrack.local', name: 'Admin User (Training)', passwordHash: adminHash },
+    })
+  } else {
+    await prisma.user.upsert({
+      where: { email: 'admin-trn@calltrack.local' },
+      update: { passwordHash: adminHash, name: 'Admin User (Training)' },
+      create: {
+        name: 'Admin User (Training)',
+        email: 'admin-trn@calltrack.local',
+        passwordHash: adminHash,
+        role: UserRole.ADMIN,
+        freelancerStatus: null,
+      },
+    })
+  }
 
-  const freelancer = await prisma.user.upsert({
-    where: { email: 'freelancer@calltrack.local' },
-    update: { passwordHash: freelancerHash },
-    create: {
-      name: 'Sarah Freelancer',
-      email: 'freelancer@calltrack.local',
-      passwordHash: freelancerHash,
-      role: UserRole.FREELANCER,
-      freelancerStatus: FreelancerStatus.APPROVED,
-      appliedAt: new Date(),
-      reviewedAt: new Date(),
-      reviewedById: null,
-    },
-  })
+  const legacyFreelancer = await prisma.user.findUnique({ where: { email: 'freelancer@calltrack.local' } })
+  if (legacyFreelancer) {
+    await prisma.user.update({
+      where: { id: legacyFreelancer.id },
+      data: { email: 'freelancer-trn@calltrack.local', name: 'Sarah Freelancer (Training)', passwordHash: freelancerHash },
+    })
+  } else {
+    await prisma.user.upsert({
+      where: { email: 'freelancer-trn@calltrack.local' },
+      update: { passwordHash: freelancerHash, name: 'Sarah Freelancer (Training)' },
+      create: {
+        name: 'Sarah Freelancer (Training)',
+        email: 'freelancer-trn@calltrack.local',
+        passwordHash: freelancerHash,
+        role: UserRole.FREELANCER,
+        freelancerStatus: FreelancerStatus.APPROVED,
+        appliedAt: new Date(),
+        reviewedAt: new Date(),
+        reviewedById: null,
+      },
+    })
+  }
 
   // ── Read CSV ───────────────────────────────────────────────────────────
   const csvPaths = [
@@ -202,8 +219,8 @@ async function main() {
   }
 
   console.log(`\n✅ Seeded:`)
-  console.log(`   1 admin: admin@calltrack.local / ${adminPassword}`)
-  console.log(`   1 freelancer: freelancer@calltrack.local / ${freelancerPassword}`)
+  console.log(`   1 admin: admin-trn@calltrack.local / ${adminPassword}`)
+  console.log(`   1 freelancer: freelancer-trn@calltrack.local / ${freelancerPassword}`)
   if (created > 0) {
     console.log(`   ${created} contacts from CSV`)
   } else {
