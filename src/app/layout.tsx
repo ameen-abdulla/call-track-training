@@ -23,17 +23,17 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const viewport: Viewport = {
-  themeColor: '#0D9488',
+  themeColor: '#d97706',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
 }
 
 export const metadata: Metadata = {
-  title: 'Call Track — Tele-Calling Command Center',
-  description: 'Enterprise Marketing Call & Feedback Tracking Platform',
+  title: '[TRAINING] Call Track — Tele-Calling Command Center',
+  description: 'Enterprise Marketing Call & Feedback Tracking Platform — Training Instance',
   manifest: '/manifest.json',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Call Track' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Call Track Training' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -45,6 +45,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased min-h-screen selection:bg-[var(--accent)] selection:text-white transition-colors duration-150">
+        <div className="bg-amber-500 text-slate-950 font-mono text-[11px] font-bold py-1 px-3 text-center uppercase tracking-wider sticky top-0 z-50 shadow-xs flex items-center justify-center gap-2">
+          <span>⚠️ TRAINING ENVIRONMENT — Port 4000 — Changes here do not affect production</span>
+        </div>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}
         </ThemeProvider>

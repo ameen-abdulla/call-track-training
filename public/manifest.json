@@ -1,11 +1,11 @@
 {
-  "name": "Call Track",
-  "short_name": "Call Track",
-  "description": "Marketing Call & Feedback App",
+  "name": "Call Track — Training",
+  "short_name": "CT Training",
+  "description": "Call Track Training & Simulation Environment",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "theme_color": "#d97706",
   "orientation": "portrait",
   "icons": [
     {

@@ -15,5 +15,5 @@ if [ ! -f /data/.seeded ]; then
   echo "[Call Track] Seed complete."
 fi
 
-echo "[Call Track] Starting server on http://localhost:3000"
+echo "[Call Track Training] Starting server on http://localhost:4000"
 exec npm start

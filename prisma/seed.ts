@@ -101,9 +101,8 @@ async function main() {
 
   // ── Read CSV ───────────────────────────────────────────────────────────
   const csvPaths = [
-    path.join(__dirname, 'qatar_education_prospect_master_list.csv'),
-    path.join(process.cwd(), 'prisma/qatar_education_prospect_master_list.csv'),
-    'D:/FamCode/Call Tracker/Sample CSV/qatar_education_prospect_master_list.csv',
+    path.join(__dirname, 'training_sample_prospect_list.csv'),
+    path.join(process.cwd(), 'prisma/training_sample_prospect_list.csv'),
   ]
 
   let csvContent: string | null = null
@@ -114,7 +113,7 @@ async function main() {
       break
     }
   }
-  if (!csvContent) throw new Error('CSV not found. Tried: ' + csvPaths.join(', '))
+  if (!csvContent) throw new Error('Training sample CSV not found. Tried: ' + csvPaths.join(', '))
 
   const rows = parseCSV(csvContent)
   console.log(`Parsed ${rows.length} rows`)

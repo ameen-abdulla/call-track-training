@@ -1,5 +1,5 @@
 @echo off
-title Call Track — Starting...
+title Call Track (Training) — Starting...
 if exist "%~dp0call-track" (
     cd /d "%~dp0call-track"
 ) else (
@@ -7,9 +7,9 @@ if exist "%~dp0call-track" (
 )
 
 echo.
-echo  ============================
-echo    Call Track is starting...
-echo  ============================
+echo  ======================================
+echo    Call Track (Training) is starting...
+echo  ======================================
 echo.
 
 REM ── Check if Node.js is installed ──────────────────────────────────
@@ -55,20 +55,20 @@ if not exist ".next" (
 )
 
 REM ── Start the server ───────────────────────────────────────────────
-start "Call Track Server" /MIN cmd /k "npm run start"
+start "Call Track Training Server" /MIN cmd /k "npm run start"
 
-echo  Server is starting up...
+echo  Server is starting up on port 4000...
 echo  Opening browser in 8 seconds...
 echo.
 timeout /t 8 /nobreak >nul
 
-start https://calltrack.flexibook.ai
+start http://localhost:4000
 
 echo.
-echo  ============================
-echo    Call Track is running!
-echo    https://calltrack.flexibook.ai
-echo  ============================
+echo  ======================================
+echo    Call Track (Training) is running!
+echo    http://localhost:4000
+echo  ======================================
 echo.
 echo  To stop the app, run "Stop Call Track.bat"
 echo.

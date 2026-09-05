@@ -1,19 +1,19 @@
 services:
-  call-track:
+  call-track-training:
     build: .
-    container_name: call-track
+    container_name: call-track-training
     ports:
-      - "3000:3000"
+      - "4000:4000"
     volumes:
-      - call-track-data:/data
+      - call-track-training-data:/data
     environment:
       - DATABASE_URL=file:/data/dev.db
       - AUTH_SECRET=your-secret-change-in-production-min-32-chars
-      - AUTH_URL=https://calltrack.flexibook.ai
+      - AUTH_URL=http://localhost:4000
       - AUTH_TRUST_HOST=true
       - NEXTAUTH_SECRET=your-secret-change-in-production-min-32-chars
-      - NEXTAUTH_URL=https://calltrack.flexibook.ai
+      - NEXTAUTH_URL=http://localhost:4000
     restart: unless-stopped
 
 volumes:
-  call-track-data:
+  call-track-training-data:

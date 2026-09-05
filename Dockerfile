@@ -15,9 +15,9 @@ RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoin
 RUN npx prisma generate
 RUN npm run build
 
-EXPOSE 3000
+EXPOSE 4000
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=4000
 ENV HOSTNAME=0.0.0.0
 ENV AUTH_TRUST_HOST=true
 
