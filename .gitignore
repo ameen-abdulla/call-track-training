@@ -55,3 +55,9 @@ next-env.d.ts
 # credentials
 SEED_CREDENTIALS.txt
 
+# installer build artifacts & external tools
+/dist/
+/tools/
+/installer/Output/
+*.exe
+

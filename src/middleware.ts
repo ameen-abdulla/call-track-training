@@ -58,7 +58,9 @@ export default auth((req) => {
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
     pathname === '/auth/signed-out' ||
-    pathname.startsWith('/api/auth')
+    pathname.startsWith('/api/auth') ||
+    pathname === '/api/health' ||
+    pathname === '/api/healthz'
 
   if (isPublic) {
     // Only bounce away from /login if the user is actually allowed in

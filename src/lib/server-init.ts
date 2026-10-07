@@ -32,15 +32,13 @@ Please update your environment variables in your hosting dashboard:
 `)
   }
 
-  if (isProd && !process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
-    console.warn(`
-================================================================================
-⚠️  [CALL TRACK CONFIGURATION WARNING]
-AUTH_SECRET or NEXTAUTH_SECRET is not set in production!
-Authentication sessions will fail or be insecure.
-Generate a secret with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-================================================================================
-`)
+  const KNOWN_PLACEHOLDERS = ['your-secret', 'change-me', 'development-secret', 'secret', 'changeme', 'password']
+  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || ''
+
+  if (isProd && (!secret || KNOWN_PLACEHOLDERS.includes(secret.toLowerCase()))) {
+    const msg = `CRITICAL SECURITY ERROR: AUTH_SECRET is missing or matches a known insecure placeholder ('${secret}'). Application cannot start in production mode.`
+    console.error(`\n================================================================================\n❌  [CALL TRACK FATAL CONFIGURATION ERROR]\n${msg}\n================================================================================\n`)
+    throw new Error(msg)
   }
 }
 

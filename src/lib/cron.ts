@@ -63,10 +63,19 @@ export function startCronJobs() {
   cron.schedule(backupSchedule, async () => {
     console.log('[cron] Running automated SQLite WAL-safe database backup...')
     try {
-      const backupDirName = process.env.BACKUP_DIR || 'backups-training'
-      const backupDir = path.join(/*turbopackIgnore: true*/ process.cwd(), backupDirName)
-      if (!fs.existsSync(/*turbopackIgnore: true*/ backupDir)) {
-        fs.mkdirSync(/*turbopackIgnore: true*/ backupDir, { recursive: true })
+      let backupDir = process.env.BACKUP_DIR
+      if (!backupDir) {
+        backupDir = process.env.PROGRAMDATA
+          ? path.join(process.env.PROGRAMDATA, 'CallTrackTraining', 'backups')
+          : path.join(/*turbopackIgnore: true*/ process.cwd(), 'backups-training')
+      } else if (!path.isAbsolute(backupDir)) {
+        backupDir = process.env.PROGRAMDATA
+          ? path.join(process.env.PROGRAMDATA, 'CallTrackTraining', backupDir)
+          : path.join(/*turbopackIgnore: true*/ process.cwd(), backupDir)
+      }
+
+      if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true })
       }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16)
@@ -76,6 +85,32 @@ export function startCronJobs() {
       // VACUUM INTO creates a zero-corruption point-in-time snapshot of SQLite in WAL mode
       await prisma.$executeRawUnsafe(`VACUUM INTO '${normalizedPath}'`)
       console.log(`[cron] ✅ SQLite backup created successfully at: ${backupFilePath}`)
+
+      // Retention cleanup (Default 14 days)
+      const retentionDays = parseInt(process.env.BACKUP_RETENTION_DAYS || '14', 10)
+      if (retentionDays > 0) {
+        try {
+          const files = fs.readdirSync(backupDir)
+            .filter(f => f.startsWith('calltrack-backup-') && f.endsWith('.db'))
+            .map(f => {
+              const fullPath = path.join(backupDir!, f)
+              const stat = fs.statSync(fullPath)
+              return { name: f, fullPath, mtimeMs: stat.mtimeMs }
+            })
+            .sort((a, b) => b.mtimeMs - a.mtimeMs) // newest first
+
+          const cutoffMs = Date.now() - retentionDays * 24 * 60 * 60 * 1000
+          // Never delete the newest verified backup (index 0)
+          for (let i = 1; i < files.length; i++) {
+            if (files[i].mtimeMs < cutoffMs) {
+              fs.unlinkSync(files[i].fullPath)
+              console.log(`[cron] 🗑️ Pruned old backup beyond ${retentionDays} days retention: ${files[i].name}`)
+            }
+          }
+        } catch (pruneErr) {
+          console.warn('[cron] ⚠️ Warning pruning old backups:', pruneErr)
+        }
+      }
     } catch (err) {
       console.error('[cron] ❌ Error executing automated SQLite database backup:', err)
     }
