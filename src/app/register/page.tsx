@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Clock, CheckCircle2 } from 'lucide-react'
+import { PasswordRequirements } from '@/components/password-requirements'
+import { validatePassword } from '@/lib/password-policy'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -15,6 +17,11 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const pwCheck = validatePassword(form.password)
+    if (!pwCheck.valid) {
+      setError(pwCheck.errors[0])
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -125,13 +132,14 @@ export default function RegisterPage() {
                 required
                 minLength={8}
                 value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                onChange={e => {
+                  setForm(f => ({ ...f, password: e.target.value }))
+                  if (error) setError('')
+                }}
                 className="w-full px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)] focus:outline-none"
                 placeholder="••••••••"
               />
-              <p className="mt-1 text-[10px] text-[var(--text-muted)] leading-relaxed">
-                Min 8 characters · one uppercase · one number · one special character (e.g. !@#\$)
-              </p>
+              <PasswordRequirements password={form.password} />
             </div>
 
             <div>

@@ -78,12 +78,14 @@ If you already use Call Track on your system, Docker Desktop is already installe
 ## 4. Alternative Method: Running Without Docker (Native Node.js)
 
 If you prefer to run the training app directly using Windows batch files without Docker:
-1. Open the `call-track-training` folder.
-2. Double-click **`Start Call Track.bat`**.
-   - If Node.js is missing, it will automatically prompt you to download the official Node.js LTS installer.
-   - On the first run, it installs dependencies, initializes the local training database, and loads the synthetic training contacts.
-   - It will automatically launch the server in the background and open `http://localhost:4000`.
-3. To stop the server at any time, double-click **`Stop Call Track.bat`** in the same folder.
+1. **Prerequisites**: Ensure Node.js 20+ LTS is installed (the launcher will detect and offer download link if missing).
+2. Open the `call-track-training` folder.
+3. Double-click **`Start Call Track.bat`**.
+   - On the first run, it configures `.env` with a unique cryptographic authentication secret, installs dependencies, sets up the database schema, seeds training data (`prisma/.seeded`), and compiles the Next.js production build (`.next/BUILD_ID`).
+   - It performs strict fail-fast validation at every step: if any command fails, it halts immediately with descriptive error output and does **not** attempt to launch an unbuilt server.
+   - It starts the server minimized in the background, continuously polls `http://localhost:4000/api/healthz` for up to 45 seconds to confirm readiness, and opens your browser only after receiving a confirmed HTTP 200 response.
+4. To stop the server at any time, double-click **`Stop Call Track.bat`** in the same folder.
+5. If startup ever fails, inspect the minimized "Call Track Training Server" window to review the runtime logs, or run `npm run build` in PowerShell to inspect compiler output.
 
 ---
 
@@ -153,8 +155,8 @@ Over time, your training agents may log dozens of test calls, change contact sta
 
 ### If using Native Batch (`.bat`):
 1. Double-click **`Stop Call Track.bat`**.
-2. Delete the `dev.db` file inside the `call-track-training/prisma` folder.
-3. In terminal, run `npx prisma db push` and `npx tsx prisma/seed.ts` (or double-click `Start Call Track.bat`).
+2. Delete the `dev.db` file and `prisma/.seeded` marker inside the `call-track-training/prisma` folder.
+3. Double-click **`Start Call Track.bat`** (or in terminal run `npx prisma db push && npm run db:seed`).
 
 ---
 

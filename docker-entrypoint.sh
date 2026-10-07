@@ -3,6 +3,15 @@ set -e
 
 echo "[Call Track] Starting up..."
 
+# Generate unique secret if not provided via environment
+if [ -z "$AUTH_SECRET" ]; then
+  echo "[Call Track] AUTH_SECRET not set, generating unique secret..."
+  export AUTH_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+fi
+if [ -z "$NEXTAUTH_SECRET" ]; then
+  export NEXTAUTH_SECRET="$AUTH_SECRET"
+fi
+
 # Push schema to the database
 echo "[Call Track] Setting up database..."
 npx prisma db push --skip-generate

@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { NotificationBell } from '@/components/notification-bell'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { PasswordRequirements } from '@/components/password-requirements'
+import { validatePassword } from '@/lib/password-policy'
 
 // Analytics Components
 import { KPIStrip, KPIsData } from '@/components/analytics/kpi-strip'
@@ -226,10 +228,10 @@ export default function AdminDashboard() {
         ])
 
         const [contactsData, freelancersData, tagsData, dashData] = await Promise.all([
-          contactsRes.json(),
-          freelancersRes.json(),
-          tagsRes.json(),
-          dashRes.json(),
+          contactsRes.ok ? contactsRes.json().catch(() => []) : [],
+          freelancersRes.ok ? freelancersRes.json().catch(() => []) : [],
+          tagsRes.ok ? tagsRes.json().catch(() => []) : [],
+          dashRes.ok ? dashRes.json().catch(() => ({} as any)) : ({} as any),
         ])
 
         if (!ignore) {
@@ -349,15 +351,41 @@ export default function AdminDashboard() {
     setDeletingFreelancerLoading(true)
     try {
       const res = await fetch(`/api/admin/freelancers/${deletingFreelancer.id}`, { method: 'DELETE' })
-      const data = await res.json()
+      let data: any = null
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null)
+      } else {
+        const text = await res.text().catch(() => '')
+        data = { error: text || `Server returned ${res.status} ${res.statusText}` }
+      }
+
       if (res.ok) {
         setDeletingFreelancer(null)
         refreshAll()
       } else {
-        alert(data.error || 'Failed to delete freelancer')
+        let errorMessage = data?.error || 'Failed to delete freelancer'
+        if (res.status === 401) {
+          errorMessage = 'Session expired. Please log in again.'
+        } else if (res.status === 403) {
+          errorMessage = 'You do not have permission to perform this action.'
+        } else if (res.status >= 500) {
+          errorMessage = data?.error || `Server error (${res.status}). Please try again or contact support.`
+        }
+        alert(errorMessage)
       }
-    } catch {
-      alert('Error connecting to server')
+    } catch (err: unknown) {
+      console.error('Error deleting freelancer:', err)
+      const isNetworkError =
+        err instanceof TypeError &&
+        (err.message.toLowerCase().includes('fetch') ||
+          err.message.toLowerCase().includes('network') ||
+          err.message.toLowerCase().includes('failed to fetch'))
+      alert(
+        isNetworkError
+          ? 'Unable to reach server. Please check your internet connection or server status.'
+          : (err instanceof Error ? err.message : 'Error connecting to server.')
+      )
     } finally {
       setDeletingFreelancerLoading(false)
     }
@@ -365,6 +393,11 @@ export default function AdminDashboard() {
 
   async function handleCreateFreelancer(e: React.FormEvent) {
     e.preventDefault()
+    const pwCheck = validatePassword(newFreelancer.password)
+    if (!pwCheck.valid) {
+      setCreateFreelancerError(pwCheck.errors[0])
+      return
+    }
     setCreatingFreelancer(true)
     setCreateFreelancerError('')
     try {
@@ -373,16 +406,48 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newFreelancer),
       })
-      const data = await res.json()
+
+      let data: any = null
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null)
+      } else {
+        const text = await res.text().catch(() => '')
+        data = { error: text || `Server returned ${res.status} ${res.statusText}` }
+      }
+
       if (!res.ok) {
-        setCreateFreelancerError(data.error || 'Failed to create freelancer')
+        let errorMessage = data?.error || 'Failed to create freelancer'
+        if (res.status === 401) {
+          errorMessage = 'Session expired. Please log in again.'
+        } else if (res.status === 403) {
+          errorMessage = 'You do not have permission to perform this action.'
+        } else if (res.status === 409) {
+          errorMessage = data?.error || 'An account with this email already exists.'
+        } else if (res.status === 400) {
+          errorMessage = data?.error || 'Validation error'
+        } else if (res.status >= 500) {
+          errorMessage = data?.error || `Server error (${res.status}). Please try again or contact support.`
+        }
+        setCreateFreelancerError(errorMessage)
       } else {
         setShowAddFreelancer(false)
         setNewFreelancer({ name: '', email: '', phone: '', password: '', applicationNote: '' })
         refreshAll()
       }
-    } catch {
-      setCreateFreelancerError('Error connecting to server.')
+    } catch (err: unknown) {
+      console.error('Error creating freelancer:', err)
+      const isNetworkError =
+        err instanceof TypeError &&
+        (err.message.toLowerCase().includes('fetch') ||
+          err.message.toLowerCase().includes('network') ||
+          err.message.toLowerCase().includes('failed to fetch'))
+
+      if (isNetworkError) {
+        setCreateFreelancerError('Unable to reach server. Please check your internet connection or server status.')
+      } else {
+        setCreateFreelancerError(err instanceof Error ? err.message : 'Unable to reach server. Please check your internet connection or server status.')
+      }
     } finally {
       setCreatingFreelancer(false)
     }
@@ -390,6 +455,11 @@ export default function AdminDashboard() {
 
   async function handleCreateAdmin(e: React.FormEvent) {
     e.preventDefault()
+    const pwCheck = validatePassword(newAdmin.password)
+    if (!pwCheck.valid) {
+      setCreateAdminError(pwCheck.errors[0])
+      return
+    }
     setCreatingAdmin(true)
     setCreateAdminError('')
     try {
@@ -403,18 +473,50 @@ export default function AdminDashboard() {
           role: 'ADMIN',
         }),
       })
-      const data = await res.json()
+
+      let data: any = null
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null)
+      } else {
+        const text = await res.text().catch(() => '')
+        data = { error: text || `Server returned ${res.status} ${res.statusText}` }
+      }
+
       if (!res.ok) {
-        setCreateAdminError(data.error || 'Failed to create admin user')
+        let errorMessage = data?.error || 'Failed to create admin user'
+        if (res.status === 401) {
+          errorMessage = 'Session expired. Please log in again.'
+        } else if (res.status === 403) {
+          errorMessage = 'You do not have permission to perform this action.'
+        } else if (res.status === 409) {
+          errorMessage = data?.error || 'An account with this email already exists.'
+        } else if (res.status === 400) {
+          errorMessage = data?.error || 'Validation error'
+        } else if (res.status >= 500) {
+          errorMessage = data?.error || `Server error (${res.status}). Please try again or contact support.`
+        }
+        setCreateAdminError(errorMessage)
       } else {
         setShowAddAdmin(false)
         setNewAdmin({ name: '', email: '', password: '' })
-        setAdminSuccessMessage(`Admin account for "${data.name}" created successfully.`)
+        setAdminSuccessMessage(`Admin account for "${data?.name || newAdmin.name}" created successfully.`)
         setTimeout(() => setAdminSuccessMessage(''), 6000)
         refreshAll()
       }
-    } catch {
-      setCreateAdminError('Error connecting to server.')
+    } catch (err: unknown) {
+      console.error('Error creating admin:', err)
+      const isNetworkError =
+        err instanceof TypeError &&
+        (err.message.toLowerCase().includes('fetch') ||
+          err.message.toLowerCase().includes('network') ||
+          err.message.toLowerCase().includes('failed to fetch'))
+
+      if (isNetworkError) {
+        setCreateAdminError('Unable to reach server. Please check your internet connection or server status.')
+      } else {
+        setCreateAdminError(err instanceof Error ? err.message : 'Unable to reach server. Please check your internet connection or server status.')
+      }
     } finally {
       setCreatingAdmin(false)
     }
@@ -1672,7 +1774,7 @@ export default function AdminDashboard() {
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] w-full max-w-sm p-5 shadow-[var(--shadow-modal)] space-y-3">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
               <h3 className="font-bold text-sm text-[var(--text-primary)]">Add Approved Freelancer</h3>
-              <button onClick={() => setShowAddFreelancer(false)} className="p-1 text-[var(--text-muted)]">✕</button>
+              <button onClick={() => { setShowAddFreelancer(false); setCreateFreelancerError('') }} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
             </div>
 
             <form onSubmit={handleCreateFreelancer} className="space-y-2.5 text-xs">
@@ -1687,9 +1789,10 @@ export default function AdminDashboard() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Sarah Caller"
                   value={newFreelancer.name}
                   onChange={e => setNewFreelancer(p => ({ ...p, name: e.target.value }))}
-                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs"
+                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none"
                 />
               </div>
 
@@ -1698,36 +1801,42 @@ export default function AdminDashboard() {
                 <input
                   type="email"
                   required
+                  placeholder="sarah@example.com"
                   value={newFreelancer.email}
                   onChange={e => setNewFreelancer(p => ({ ...p, email: e.target.value }))}
-                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono"
+                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)] focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="font-semibold text-[var(--text-secondary)]">Password * (min 8)</label>
+                <label className="font-semibold text-[var(--text-secondary)]">Password *</label>
                 <input
                   type="password"
                   required
                   minLength={8}
+                  placeholder="••••••••"
                   value={newFreelancer.password}
-                  onChange={e => setNewFreelancer(p => ({ ...p, password: e.target.value }))}
-                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono"
+                  onChange={e => {
+                    setNewFreelancer(p => ({ ...p, password: e.target.value }))
+                    if (createFreelancerError) setCreateFreelancerError('')
+                  }}
+                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)] focus:outline-none"
                 />
+                <PasswordRequirements password={newFreelancer.password} />
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddFreelancer(false)}
-                  className="px-3 py-1.5 rounded-[var(--radius-sm)] border border-[var(--border)] text-xs text-[var(--text-secondary)]"
+                  onClick={() => { setShowAddFreelancer(false); setCreateFreelancerError('') }}
+                  className="px-3 py-1.5 rounded-[var(--radius-sm)] border border-[var(--border)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg)]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creatingFreelancer}
-                  className="px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--accent)] text-white text-xs font-semibold"
+                  className="px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold shadow-xs disabled:opacity-50"
                 >
                   {creatingFreelancer ? 'Creating...' : 'Create Account'}
                 </button>
@@ -1778,16 +1887,20 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <label className="font-semibold text-[var(--text-secondary)]">Password * (min 8)</label>
+                <label className="font-semibold text-[var(--text-secondary)]">Password *</label>
                 <input
                   type="password"
                   required
                   minLength={8}
                   placeholder="••••••••"
                   value={newAdmin.password}
-                  onChange={e => setNewAdmin(p => ({ ...p, password: e.target.value }))}
+                  onChange={e => {
+                    setNewAdmin(p => ({ ...p, password: e.target.value }))
+                    if (createAdminError) setCreateAdminError('')
+                  }}
                   className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)] focus:outline-none"
                 />
+                <PasswordRequirements password={newAdmin.password} />
               </div>
 
               <div className="pt-2 flex justify-end gap-2">

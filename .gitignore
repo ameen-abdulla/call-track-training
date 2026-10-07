@@ -41,6 +41,9 @@ yarn-error.log*
 *.db-wal
 *.db-shm
 backups/
+backups-training/
+.seeded
+prisma/.seeded
 
 # vercel
 .vercel
@@ -51,3 +54,4 @@ next-env.d.ts
 
 # credentials
 SEED_CREDENTIALS.txt
+

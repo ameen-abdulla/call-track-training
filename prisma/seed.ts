@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, FreelancerStatus } from '@prisma/client'
+import { PrismaClient, UserRole, FreelancerStatus, User } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import * as fs from 'fs'
@@ -50,6 +50,22 @@ function parseCSV(content: string): Record<string, string>[] {
   })
 }
 
+async function reassignUserRelations(sourceUserId: string, targetUserId: string) {
+  await prisma.contact.updateMany({ where: { createdById: sourceUserId }, data: { createdById: targetUserId } })
+  await prisma.contact.updateMany({ where: { assignedToId: sourceUserId }, data: { assignedToId: targetUserId } })
+  await prisma.assignmentHistory.updateMany({ where: { changedById: sourceUserId }, data: { changedById: targetUserId } })
+  await prisma.assignmentHistory.updateMany({ where: { fromUserId: sourceUserId }, data: { fromUserId: targetUserId } })
+  await prisma.assignmentHistory.updateMany({ where: { toUserId: sourceUserId }, data: { toUserId: targetUserId } })
+  await prisma.call.updateMany({ where: { agentId: sourceUserId }, data: { agentId: targetUserId } })
+  await prisma.activity.updateMany({ where: { agentId: sourceUserId }, data: { agentId: targetUserId } })
+  await prisma.activityLog.updateMany({ where: { actorId: sourceUserId }, data: { actorId: targetUserId } })
+  await prisma.notification.updateMany({ where: { userId: sourceUserId }, data: { userId: targetUserId } })
+  await prisma.notification.updateMany({ where: { sentById: sourceUserId }, data: { sentById: targetUserId } })
+  await prisma.callAttempt.updateMany({ where: { freelancerId: sourceUserId }, data: { freelancerId: targetUserId } })
+  await prisma.interaction.updateMany({ where: { freelancerId: sourceUserId }, data: { freelancerId: targetUserId } })
+  await prisma.user.updateMany({ where: { reviewedById: sourceUserId }, data: { reviewedById: targetUserId } })
+}
+
 async function main() {
   const adminPassword = generatePassword()
   const freelancerPassword = generatePassword()
@@ -64,25 +80,48 @@ async function main() {
 
   console.log(banner)
 
-  const credsPath = path.resolve(__dirname, '..', 'SEED_CREDENTIALS.txt')
-  fs.writeFileSync(credsPath, banner + '\n', 'utf-8')
-  console.log(`Saved credentials to: ${credsPath}\n`)
-
   // ── Users ──────────────────────────────────────────────────────────────
   const adminHash = await bcrypt.hash(adminPassword, 10)
   const freelancerHash = await bcrypt.hash(freelancerPassword, 10)
 
-  // Migrate legacy accounts if present
+  // Handle Admin account migration & idempotency
+  const targetAdmin = await prisma.user.findUnique({ where: { email: 'admin-trn@calltrack.local' } })
   const legacyAdmin = await prisma.user.findUnique({ where: { email: 'admin@calltrack.local' } })
-  if (legacyAdmin) {
-    await prisma.user.update({
+
+  let admin: User
+  if (targetAdmin && legacyAdmin) {
+    // Both exist: targetAdmin is authoritative. Re-link foreign keys from legacy to target, then remove legacy.
+    await reassignUserRelations(legacyAdmin.id, targetAdmin.id)
+    await prisma.user.delete({ where: { id: legacyAdmin.id } })
+
+    admin = await prisma.user.update({
+      where: { id: targetAdmin.id },
+      data: {
+        passwordHash: adminHash,
+        name: 'Admin User (Training)',
+        role: UserRole.ADMIN,
+      },
+    })
+  } else if (legacyAdmin) {
+    // Only legacy exists: migrate in-place to preserve id and existing relations
+    admin = await prisma.user.update({
       where: { id: legacyAdmin.id },
-      data: { email: 'admin-trn@calltrack.local', name: 'Admin User (Training)', passwordHash: adminHash },
+      data: {
+        email: 'admin-trn@calltrack.local',
+        name: 'Admin User (Training)',
+        passwordHash: adminHash,
+        role: UserRole.ADMIN,
+      },
     })
   } else {
-    await prisma.user.upsert({
+    // Fresh seed or re-seed where target already exists
+    admin = await prisma.user.upsert({
       where: { email: 'admin-trn@calltrack.local' },
-      update: { passwordHash: adminHash, name: 'Admin User (Training)' },
+      update: {
+        passwordHash: adminHash,
+        name: 'Admin User (Training)',
+        role: UserRole.ADMIN,
+      },
       create: {
         name: 'Admin User (Training)',
         email: 'admin-trn@calltrack.local',
@@ -93,16 +132,47 @@ async function main() {
     })
   }
 
+  // Handle Freelancer account migration & idempotency
+  const targetFreelancer = await prisma.user.findUnique({ where: { email: 'freelancer-trn@calltrack.local' } })
   const legacyFreelancer = await prisma.user.findUnique({ where: { email: 'freelancer@calltrack.local' } })
-  if (legacyFreelancer) {
-    await prisma.user.update({
+
+  let freelancer: User
+  if (targetFreelancer && legacyFreelancer) {
+    // Both exist: targetFreelancer is authoritative. Re-link foreign keys from legacy to target, then remove legacy.
+    await reassignUserRelations(legacyFreelancer.id, targetFreelancer.id)
+    await prisma.user.delete({ where: { id: legacyFreelancer.id } })
+
+    freelancer = await prisma.user.update({
+      where: { id: targetFreelancer.id },
+      data: {
+        passwordHash: freelancerHash,
+        name: 'Sarah Freelancer (Training)',
+        role: UserRole.FREELANCER,
+        freelancerStatus: FreelancerStatus.APPROVED,
+      },
+    })
+  } else if (legacyFreelancer) {
+    // Only legacy exists: migrate in-place to preserve id and existing relations
+    freelancer = await prisma.user.update({
       where: { id: legacyFreelancer.id },
-      data: { email: 'freelancer-trn@calltrack.local', name: 'Sarah Freelancer (Training)', passwordHash: freelancerHash },
+      data: {
+        email: 'freelancer-trn@calltrack.local',
+        name: 'Sarah Freelancer (Training)',
+        passwordHash: freelancerHash,
+        role: UserRole.FREELANCER,
+        freelancerStatus: FreelancerStatus.APPROVED,
+      },
     })
   } else {
-    await prisma.user.upsert({
+    // Fresh seed or re-seed where target already exists
+    freelancer = await prisma.user.upsert({
       where: { email: 'freelancer-trn@calltrack.local' },
-      update: { passwordHash: freelancerHash, name: 'Sarah Freelancer (Training)' },
+      update: {
+        passwordHash: freelancerHash,
+        name: 'Sarah Freelancer (Training)',
+        role: UserRole.FREELANCER,
+        freelancerStatus: FreelancerStatus.APPROVED,
+      },
       create: {
         name: 'Sarah Freelancer (Training)',
         email: 'freelancer-trn@calltrack.local',
@@ -218,6 +288,10 @@ async function main() {
     console.log(`ℹ️ Contacts already exist (${existingContacts} found). Skipping CSV contact creation.`)
   }
 
+  const credsPath = path.resolve(__dirname, '..', 'SEED_CREDENTIALS.txt')
+  fs.writeFileSync(credsPath, banner + '\n', 'utf-8')
+  console.log(`Saved credentials to: ${credsPath}\n`)
+
   console.log(`\n✅ Seeded:`)
   console.log(`   1 admin: admin-trn@calltrack.local / ${adminPassword}`)
   console.log(`   1 freelancer: freelancer-trn@calltrack.local / ${freelancerPassword}`)
@@ -230,5 +304,8 @@ async function main() {
 }
 
 main()
-  .catch(console.error)
+  .catch((e) => {
+    console.error('❌ Seeding failed:', e)
+    process.exit(1)
+  })
   .finally(() => prisma.$disconnect())

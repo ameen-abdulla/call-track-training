@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 title Call Track (Training) — Stopping...
 
 echo.
@@ -15,15 +15,16 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":4000 " ^| findstr "LISTENIN
 )
 
 REM Also close the server window by title as a backup
-taskkill /F /FI "WINDOWTITLE eq Call Track Training Server" >nul 2>&1
+taskkill /F /FI "WINDOWTITLE eq Call Track Training Server*" >nul 2>&1
 
 if "%FOUND%"=="1" (
-    echo  Call Track (Training) has been stopped.
+    echo  Call Track [Training] has been stopped.
 ) else (
-    echo  Call Track (Training) was not running.
+    echo  Call Track [Training] was not running on port 4000.
 )
 
 echo.
 echo  You can now close this window.
 echo.
-timeout /t 3 /nobreak >nul
+ping 127.0.0.1 -n 4 >nul
+exit /b 0

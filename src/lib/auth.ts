@@ -10,6 +10,29 @@ const FIVE_MINUTES = 5 * 60 * 1000
 const LOGIN_LIMIT = 5
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 
+// In production, guard against accidentally having localhost configured for AUTH_URL or NEXTAUTH_URL.
+// When deployed behind a reverse proxy (Cloudflare, Nginx, Coolify, Traefik), Auth.js rewrites the request origin
+// to AUTH_URL if present. If it points to localhost, all redirects and origin validations fail.
+if (process.env.NODE_ENV === 'production') {
+  if (process.env.AUTH_URL && (process.env.AUTH_URL.includes('localhost') || process.env.AUTH_URL.includes('127.0.0.1'))) {
+    console.warn(
+      `[Call Track Auth] Detected localhost AUTH_URL ("${process.env.AUTH_URL}") in production. Unsetting to allow dynamic reverse proxy host resolution via trustHost: true.`
+    )
+    delete process.env.AUTH_URL
+  }
+  if (process.env.NEXTAUTH_URL && (process.env.NEXTAUTH_URL.includes('localhost') || process.env.NEXTAUTH_URL.includes('127.0.0.1'))) {
+    console.warn(
+      `[Call Track Auth] Detected localhost NEXTAUTH_URL ("${process.env.NEXTAUTH_URL}") in production. Unsetting to allow dynamic reverse proxy host resolution via trustHost: true.`
+    )
+    delete process.env.NEXTAUTH_URL
+  }
+}
+
+// Ensure AUTH_TRUST_HOST is enabled for reverse proxy environments
+if (!process.env.AUTH_TRUST_HOST) {
+  process.env.AUTH_TRUST_HOST = 'true'
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   providers: [
@@ -68,6 +91,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith('/')) {
+        // In production, if baseUrl is localhost, resolve against AUTH_URL/NEXTAUTH_URL or return relative url
+        if (
+          process.env.NODE_ENV === 'production' &&
+          (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1'))
+        ) {
+          const prodUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL
+          if (prodUrl && !prodUrl.includes('localhost') && !prodUrl.includes('127.0.0.1')) {
+            return `${prodUrl.replace(/\/$/, '')}${url}`
+          }
+          return url
+        }
+        return `${baseUrl}${url}`
+      }
+      // Allows callback URLs on the same origin
+      try {
+        const urlObj = new URL(url)
+        const baseObj = new URL(baseUrl)
+        if (urlObj.origin === baseObj.origin) return url
+
+        // Also allow if origin matches configured non-localhost domain
+        const envUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL
+        if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+          const envObj = new URL(envUrl)
+          if (urlObj.origin === envObj.origin) return url
+        }
+      } catch {
+        // Invalid URL, fall back to baseUrl
+      }
+      return baseUrl
+    },
     async jwt({ token, user }) {
       // On first login — populate token from user object
       if (user) {

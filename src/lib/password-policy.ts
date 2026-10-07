@@ -23,24 +23,61 @@ export interface PasswordValidation {
 
 export function validatePassword(password: string): PasswordValidation {
   const errors: string[] = []
+  const pwd = password || ''
 
-  if (!password || password.length < 8) {
+  if (pwd.length < 8) {
     errors.push('Password must be at least 8 characters long.')
   }
-  if (!/[A-Z]/.test(password)) {
+  if (!/[A-Z]/.test(pwd)) {
     errors.push('Password must contain at least one uppercase letter.')
   }
-  if (!/[0-9]/.test(password)) {
+  if (!/[0-9]/.test(pwd)) {
     errors.push('Password must contain at least one number.')
   }
-  if (!/[^A-Za-z0-9]/.test(password)) {
-    errors.push('Password must contain at least one special character (e.g. ! @ # \$ % &).')
+  if (!/[^A-Za-z0-9]/.test(pwd)) {
+    errors.push('Password must contain at least one special character (e.g. ! @ # $ % &).')
   }
-  if (COMMON_PASSWORDS.has(password.toLowerCase())) {
+  if (COMMON_PASSWORDS.has(pwd.toLowerCase())) {
     errors.push('This password is too common. Please choose a stronger one.')
   }
 
   return { valid: errors.length === 0, errors }
+}
+
+export interface PasswordRuleCheck {
+  id: 'length' | 'uppercase' | 'number' | 'special'
+  label: string
+  met: boolean
+}
+
+export function getPasswordRuleChecks(password: string): PasswordRuleCheck[] {
+  const pwd = password || ''
+  return [
+    {
+      id: 'length',
+      label: '8+ characters',
+      met: pwd.length >= 8,
+    },
+    {
+      id: 'uppercase',
+      label: 'Uppercase letter (A-Z)',
+      met: /[A-Z]/.test(pwd),
+    },
+    {
+      id: 'number',
+      label: 'Number (0-9)',
+      met: /[0-9]/.test(pwd),
+    },
+    {
+      id: 'special',
+      label: 'Special character (e.g. !@#$)',
+      met: /[^A-Za-z0-9]/.test(pwd),
+    },
+  ]
+}
+
+export function isCommonPassword(password: string): boolean {
+  return COMMON_PASSWORDS.has((password || '').toLowerCase())
 }
 
 /**

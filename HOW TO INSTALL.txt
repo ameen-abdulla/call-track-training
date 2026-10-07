@@ -23,6 +23,12 @@ STEP 3 — You are done!
   The FIRST time you start the app it will take 3-5 minutes
   to build itself. After that it starts in about 10 seconds.
 
+ALTERNATIVE — Running without Docker (Native Node.js):
+  1. Ensure Node.js 20+ LTS is installed (https://nodejs.org).
+  2. Double-click "Start Call Track.bat" in this folder.
+  3. The launcher configures secrets, builds, seeds, and verifies health automatically.
+  4. Double-click "Stop Call Track.bat" to shut down.
+
 Your training login details:
   Initial secure passwords are automatically generated during setup.
   Open the "SEED_CREDENTIALS.txt" file in this folder to view your credentials:

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { UserPlus, Search, CheckCircle2, AlertCircle, Phone, Mail, ArrowLeft, Trash2, UserCheck, UserX } from 'lucide-react'
+import { PasswordRequirements } from '@/components/password-requirements'
+import { validatePassword } from '@/lib/password-policy'
 
 interface Freelancer {
   id: string
@@ -38,9 +40,13 @@ export default function FreelancersPage() {
 
   const loadFreelancers = () => {
     fetch('/api/admin/freelancers')
-      .then(r => r.json())
+      .then(r => (r.ok ? r.json() : []))
       .then(data => {
         if (Array.isArray(data)) setFreelancers(data)
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error('Error loading freelancers:', err)
         setLoading(false)
       })
   }
@@ -60,6 +66,11 @@ export default function FreelancersPage() {
 
   async function handleCreateFreelancer(e: React.FormEvent) {
     e.preventDefault()
+    const pwCheck = validatePassword(newFreelancer.password)
+    if (!pwCheck.valid) {
+      setCreateError(pwCheck.errors[0])
+      return
+    }
     setCreating(true)
     setCreateError('')
 
@@ -69,18 +80,49 @@ export default function FreelancersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newFreelancer),
       })
-      const data = await res.json()
+
+      let data: any = null
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null)
+      } else {
+        const text = await res.text().catch(() => '')
+        data = { error: text || `Server returned ${res.status} ${res.statusText}` }
+      }
 
       if (!res.ok) {
-        setCreateError(data.error || 'Failed to create freelancer')
+        let errorMessage = data?.error || 'Failed to create freelancer'
+        if (res.status === 401) {
+          errorMessage = 'Session expired. Please log in again.'
+        } else if (res.status === 403) {
+          errorMessage = 'You do not have permission to perform this action.'
+        } else if (res.status === 409) {
+          errorMessage = data?.error || 'An account with this email already exists.'
+        } else if (res.status === 400) {
+          errorMessage = data?.error || 'Validation error'
+        } else if (res.status >= 500) {
+          errorMessage = data?.error || `Server error (${res.status}). Please try again or contact support.`
+        }
+        setCreateError(errorMessage)
       } else {
         setShowAddModal(false)
         setNewFreelancer({ name: '', email: '', phone: '', password: '', applicationNote: '' })
-        setMessage(`Freelancer account for "${newFreelancer.name}" created successfully.`)
+        setMessage(`Freelancer account for "${data?.name || newFreelancer.name}" created successfully.`)
         loadFreelancers()
       }
-    } catch {
-      setCreateError('Network error. Please try again.')
+    } catch (err: unknown) {
+      console.error('Error creating freelancer:', err)
+      const isNetworkError =
+        err instanceof TypeError &&
+        (err.message.toLowerCase().includes('fetch') ||
+          err.message.toLowerCase().includes('network') ||
+          err.message.toLowerCase().includes('failed to fetch'))
+
+      if (isNetworkError) {
+        setCreateError('Unable to reach server. Please check your internet connection or server status.')
+      } else {
+        setCreateError(err instanceof Error ? err.message : 'Unable to reach server. Please check your internet connection or server status.')
+      }
     } finally {
       setCreating(false)
     }
@@ -93,16 +135,42 @@ export default function FreelancersPage() {
       const res = await fetch(`/api/admin/freelancers/${deletingFreelancer.id}`, {
         method: 'DELETE',
       })
-      const data = await res.json()
+      let data: any = null
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null)
+      } else {
+        const text = await res.text().catch(() => '')
+        data = { error: text || `Server returned ${res.status} ${res.statusText}` }
+      }
+
       if (res.ok) {
         setDeletingFreelancer(null)
-        setMessage(data.message || 'Freelancer removed successfully.')
+        setMessage(data?.message || 'Freelancer removed successfully.')
         loadFreelancers()
       } else {
-        alert(data.error || 'Failed to delete freelancer')
+        let errorMessage = data?.error || 'Failed to delete freelancer'
+        if (res.status === 401) {
+          errorMessage = 'Session expired. Please log in again.'
+        } else if (res.status === 403) {
+          errorMessage = 'You do not have permission to perform this action.'
+        } else if (res.status >= 500) {
+          errorMessage = data?.error || `Server error (${res.status}). Please try again or contact support.`
+        }
+        alert(errorMessage)
       }
-    } catch {
-      alert('Error connecting to server')
+    } catch (err: unknown) {
+      console.error('Error deleting freelancer:', err)
+      const isNetworkError =
+        err instanceof TypeError &&
+        (err.message.toLowerCase().includes('fetch') ||
+          err.message.toLowerCase().includes('network') ||
+          err.message.toLowerCase().includes('failed to fetch'))
+      alert(
+        isNetworkError
+          ? 'Unable to reach server. Please check your internet connection or server status.'
+          : (err instanceof Error ? err.message : 'Error connecting to server.')
+      )
     } finally {
       setDeleting(false)
     }
@@ -305,7 +373,7 @@ export default function FreelancersPage() {
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] w-full max-w-sm p-5 shadow-[var(--shadow-modal)] space-y-3">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
               <h3 className="font-bold text-sm text-[var(--text-primary)]">Create Approved Freelancer</h3>
-              <button onClick={() => setShowAddModal(false)} className="p-1 text-[var(--text-muted)]">✕</button>
+              <button onClick={() => { setShowAddModal(false); setCreateError('') }} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
             </div>
 
             <form onSubmit={handleCreateFreelancer} className="space-y-2.5 text-xs">
@@ -323,7 +391,7 @@ export default function FreelancersPage() {
                   placeholder="e.g. Sarah Caller"
                   value={newFreelancer.name}
                   onChange={e => setNewFreelancer(p => ({ ...p, name: e.target.value }))}
-                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs text-[var(--text-primary)]"
+                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none"
                 />
               </div>
 
@@ -335,7 +403,7 @@ export default function FreelancersPage() {
                   placeholder="sarah@example.com"
                   value={newFreelancer.email}
                   onChange={e => setNewFreelancer(p => ({ ...p, email: e.target.value }))}
-                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)]"
+                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)] focus:outline-none"
                 />
               </div>
 
@@ -346,28 +414,32 @@ export default function FreelancersPage() {
                   placeholder="+974..."
                   value={newFreelancer.phone}
                   onChange={e => setNewFreelancer(p => ({ ...p, phone: e.target.value }))}
-                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)]"
+                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)] focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="font-semibold text-[var(--text-secondary)]">Password * (min 8)</label>
+                <label className="font-semibold text-[var(--text-secondary)]">Password *</label>
                 <input
                   type="password"
                   required
                   minLength={8}
                   placeholder="••••••••"
                   value={newFreelancer.password}
-                  onChange={e => setNewFreelancer(p => ({ ...p, password: e.target.value }))}
-                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)]"
+                  onChange={e => {
+                    setNewFreelancer(p => ({ ...p, password: e.target.value }))
+                    if (createError) setCreateError('')
+                  }}
+                  className="w-full mt-1 px-3 py-1.5 rounded-[var(--radius-sm)] bg-[var(--bg)] border border-[var(--border)] text-xs font-mono text-[var(--text-primary)] focus:outline-none"
                 />
+                <PasswordRequirements password={newFreelancer.password} />
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-3 py-1.5 rounded-[var(--radius-sm)] border border-[var(--border)] text-xs text-[var(--text-secondary)]"
+                  onClick={() => { setShowAddModal(false); setCreateError('') }}
+                  className="px-3 py-1.5 rounded-[var(--radius-sm)] border border-[var(--border)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg)]"
                 >
                   Cancel
                 </button>
