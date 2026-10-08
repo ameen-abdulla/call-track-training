@@ -57,6 +57,7 @@ Source: "..\prisma\schema.prisma"; DestDir: "{app}\app\prisma"; Flags: ignorever
 ; Standalone Server Launcher & Bootstrap Scripts
 Source: "..\run-server.js"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "..\cli\bootstrap.js"; DestDir: "{app}\app\cli"; Flags: ignoreversion
+Source: "..\cli\reset-admin.js"; DestDir: "{app}\app\cli"; Flags: ignoreversion
 
 ; Documentation
 Source: "..\CLIENT_INSTALL_GUIDE.md"; DestDir: "{app}"; Flags: ignoreversion
